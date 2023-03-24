@@ -283,7 +283,7 @@ function clickhouse_start() {
     systemctl daemon-reload
     clickhouse_server_status=$(ps -ef | grep clickhouse-server | grep -v grep >/dev/null &&  echo yes || echo no)
     if [ ${clickhouse_server_status} == "no" ]; then
-            systemctl start ${clickhouse_server}; systemctl enable ${clickhouse_server}
+            systemctl start ${clickhouse_server}; systemctl enable ${clickhouse_server} >/dev/null 2>&1
             if [ $? -eq 0 ];then
                 log_info "${clickhouse_server} is running"
             else
@@ -328,7 +328,29 @@ function clickhouse_status() {
     fi
 }
 
+function set_password() {
+        random_number=$(date +%s%N|md5sum|head -c 5)
+        # set default password is admin
+        password=${password:-admin}
+        tmp_script=tmp_${random_number}.sh
+        echo  "#!/usr/bin/expect">"${tmp_script}"
+        echo  "spawn htpasswd  ${password_file} admin">>"${tmp_script}"
+        echo  "expect *.password:">>"${tmp_script}"
+        echo  "send ${password}\r">>"${tmp_script}"
+        echo  "expect *.password:">>"${tmp_script}"
+        echo  "send ${password}\r">>"${tmp_script}"
+        echo  "interact">>"${tmp_script}"
 
+        chmod +x "${tmp_script}"
+
+        /usr/bin/expect "${tmp_script}"
+        if [  $? -eq 0  ]; then
+            log_info "nim password is changed"
+        else
+            log_error "nim password is changed"
+        fi
+        rm "${tmp_script}"
+}
 
 function nim_install() {
     # check if clickhouse is installed
@@ -358,29 +380,14 @@ function nim_install() {
     # starting nginx manager service
     nim_start
 
-# echo "Please change this password with your own, For UI access, point your browser to the HTTPS port of this machine."
-# HTPASSWD=`find /etc -type f -iname .htpasswd`
-
-# if [ -z $HTPASSWD ]; then
-#     log_error "$HTPASSWD is not exist"
-#     exit 1
-# else
-#     echo "Please change this password with your own, For UI access, point your browser to the HTTPS port of this machine."
-#     htpasswd  $HTPASSWD admin
-#     if [  $? -eq 0  ]; then
-#         fn_log "nms password is successfully changed"
-#     else
-#         fn_log "nms password is inconsistent"
-#     fi
-# fi
-
-# echo "
-# ********************ATTENTION********************************
-#     Login link https://$IP/ui/
-#     Admin username: admin
-#     Admin password: admin
-# ********************ATTENTION********************************
-# "
+    password_file=$(find /etc/nms/nginx/ -type f -iname .htpasswd)
+    if [ -z ${password_file} ]; then
+        log_error "${password_file} is not exist"
+        exit 1
+    else
+        log_info "change default password for web ui login"
+        set_password >/dev/null
+    fi
 }
 
 function nim_uninstall() {
@@ -403,7 +410,7 @@ function nim_start() {
     for name in ${nms_names[*]}; do
         nim_status=$(ps -ef | grep ${name}  | grep -v grep >/dev/null &&  echo yes || echo no)
         if [ ${nim_status} == "no" ]; then
-            systemctl start ${name}; systemctl enable ${name} >/dev/null
+            systemctl start ${name}; systemctl enable ${name} >/dev/null 2>&1
             if [ $? -eq 0 ];then
                 log_info "${name} is running"
             else
@@ -497,7 +504,7 @@ function nginx_start() {
     # nginx_status=$(ps -ef | grep ${nginx} | grep -v grep >/dev/null &&  echo yes || echo no)
     #ps -ef | grep ${nginx} | grep -v grep >/dev/null
     # if [ $? -ne 0 ]; then
-    systemctl start ${nginx}; systemctl enable ${nginx} >/dev/null
+    systemctl start ${nginx}; systemctl enable ${nginx} >/dev/null 2>&1
     if [ $? -eq 0 ];then
         log_info "${nginx} is running"
     else
@@ -542,14 +549,11 @@ function nginx_status() {
         fi
 }
 
-
-
-# 包是否安装,如果安装就跳过
 function nginxplus_install() {
-    #Installation instructions for RHEL 7.4+ / CentOS 7.4+ / Oracle Linux 7.4+
+    #Installation instructions for RHEL 7.4+ / CentOS 7.4+
     #If you already have old NGINX packages in your system, back up your configs and logs:
     if [ ! -d /etc/nginx -o ! -d /var/log/nginx  ]; then
-        log_info "these directory is not exist"
+        log_info "the directory /etc/nginx is not exist"
     else
         cp -a /etc/nginx /etc/nginx-plus-backup
         cp -a /var/log/nginx /var/log/nginx-plus-backup
@@ -583,7 +587,7 @@ function nginxplus_uninstall() {
 
     nginxplus_pkg_status=$(rpm -qa | grep ${nginxplus_pkg_name} >/dev/null &&  echo yes || echo no)
     if [ ${nginxplus_pkg_status} == "yes" ]; then
-        yum -y remove nginx-plus nginx-ha-keepalived-selinux
+        yum -y remove nginx-plus nginx-ha-keepalived-selinux >/dev/null
         log_info "${nginxplus_pkg_name} is uninstalling"
     else
         log_info "${nginxplus_pkg_name} is already uninstalled"
@@ -592,17 +596,13 @@ function nginxplus_uninstall() {
 
 function nginxplus_start() {
     systemctl daemon-reload
-    # nginxplus_status=$(ps -ef | grep ${nginxplus_service_name} | grep -v grep >/dev/null &&  echo yes || echo no)
-    # if [ ${nginxplus_status} == "no" ]; then
-    systemctl start ${nginxplus_service_name}; systemctl enable ${nginxplus_service_name} >/dev/null
+    systemctl start ${nginxplus_service_name}
+    systemctl enable ${nginxplus_service_name} >/dev/null 2>&1
     if [ $? -eq 0 ];then
         log_info "${nginxplus_pkg_name} is running"
     else
         log_error "${nginxplus_pkg_name} is stopping"
     fi
-    # else
-    #         log_info "${nginxplus_pkg_name} is already running"
-    # fi
 }
 
 function nginxplus_restart() {
@@ -639,6 +639,17 @@ function nginxplus_status() {
         fi
 }
 
+
+function print_login_prompt() {
+echo "
+********************Web Login Prompt********************************
+    Login link https://${IP}/ui/
+    Admin username: admin
+    Admin password: admin
+********************Web Login Prompt********************************
+"
+}
+
 function acm_install() {
 
     # install and start nim service
@@ -655,7 +666,13 @@ function acm_install() {
 
     # start acm service
     acm_start
+
+    # restart nginxplus service
+    nginxplus_restart
+    
+    print_login_prompt
 }
+
 
 function acm_uninstall() {
     # uninstall nim service
@@ -664,13 +681,12 @@ function acm_uninstall() {
     # check install packages is normal
     acm_pkg_status=$(rpm -qa | grep nginx-devportal  >/dev/null &&  echo yes || echo no)
     if [ ${acm_pkg_status} == "yes" ]; then
-        yum -y remove nginx-devportal  nginx-devportal-ui ${acm_pkg_name}
+        yum -y remove nginx-devportal  nginx-devportal-ui ${acm_pkg_name} >/dev/null
         log_info "${acm_pkg_name} is uninstalling"
     else
         log_info "${acm_pkg_name} is already uninstalled"
     fi
 }
-
 
 function acm_start() {
     # start nim service
@@ -678,7 +694,7 @@ function acm_start() {
     # start acm service
     acm_status=$(ps -ef | grep ${acm_service_name} | grep -v grep >/dev/null &&  echo yes || echo no)
     if [ ${acm_status} == "no" ]; then
-            systemctl start ${acm_service_name}; systemctl enable ${acm_service_name} >/dev/null
+            systemctl start ${acm_service_name}; systemctl enable ${acm_service_name} >/dev/null 2>&1
             if [ $? -eq 0 ];then
                 log_info "${acm_pkg_name} is running"
             else

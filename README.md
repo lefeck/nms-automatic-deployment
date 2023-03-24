@@ -96,15 +96,24 @@ This is an example of deploying the acm service, as follows：
  clickhouse-server is installing sucessed. 
  clickhouse-server is running sucessed. 
  clickhouse-server is already running sucessed. 
- these directory is not exist sucessed. 
+ the directory /etc/nginx is not exist sucessed. 
  cp nginx-repo.key nginx-repo.crt to /etc/ssl/nginx directory sucessed. 
  nginx-plus is installing sucessed. 
  nginx-plus is running sucessed. 
  nms-instance-manager is installing sucessed. 
  nms is already running sucessed. 
+ change default password for web ui login sucessed. 
+Warning: RPMDB altered outside of yum.
  nms-api-connectivity-manager is installing sucessed. 
  nms is already running sucessed. 
  nms-api-connectivity-manager is running sucessed. 
+ nginx-plus is restart sucessed. 
+
+********************Web Login Prompt********************************
+    Login link https://192.168.10.179/ui/
+    Admin username: admin
+    Admin password: admin
+********************Web Login Prompt********************************
  [root@localhost nms-automatic-deployment]# ss -tunlp
 Netid  State      Recv-Q Send-Q                             Local Address:Port                                            Peer Address:Port              
 tcp    LISTEN     0      4096                                   127.0.0.1:9009                                                       *:*                   users:(("clickhouse-serv",pid=4963,fd=428))
