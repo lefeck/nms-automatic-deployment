@@ -3,19 +3,18 @@
 # author Johnny
 set -Eeuo pipefail
 #
-# centos install nginx manager of the method
+# centos 7 install nginx manager suite
 #
 
 function cleanup() {
         trap - SIGINT SIGTERM ERR EXIT
-        if [ -n "${tmpdir+x}" ]; then
-                rm -rf "$tmpdir" "$bootdir"
-                log "🚽 Deleted temporary working directory $tmpdir"
+        if [ -n "${tmp_script}" ]; then
+#                log_info "Deleted temporary working script ${tmp_script}"
+                rm -rf "${tmp_script}"
         fi
 }
 
-#trap cleanup SIGINT SIGTERM ERR EXIT
-
+#trap SIGINT SIGTERM ERR EXIT
 
 # set variable value
 DATE_N=`date "+%Y-%m-%d %H:%M:%S"`
@@ -221,7 +220,7 @@ function os_preinstall() {
     fi
 
     # disable selinux
-    setenforce 0
+    setenforce 0 >/dev/null 2>&1 || true
     sed -i s/SELINUX=enforcing/SELINUX=disabled/ /etc/selinux/config
     # disable firewall
     systemctl stop firewalld
@@ -230,14 +229,23 @@ function os_preinstall() {
     swapoff -a
 
     #configure ssh
-    cat /etc/ssh/sshd_config | grep "UseDNS no" || {
+    cat /etc/ssh/sshd_config | grep "UseDNS no" >/dev/null 2>&1 || {
         sed -i '/#VersionAddendum none/a\UseDNS no' /etc/ssh/sshd_config
         log_info "disabled ssh reverse domain name resolution"
     }
     sed -i "s/GSSAPIAuthentication yes/GSSAPIAuthentication no/g" /etc/ssh/sshd_config
     systemctl restart sshd
+
+    log_info "🔎 Checking for required utilities..."
+    if [[ ! -x "$(command -v expect)" ]];then
+            yum -y install expect
+            log_info "expect has been installed on Centos/Redhat 7"
+    fi
+
+    [[ ! -x "$(command -v expect)" ]] && log_error " expect is not installed. On Centos/Redhat 7, install the 'expect' package."
 }
 
+os_preinstall
 
 function clickhouse_install() {
     # check if nms packages is already installing
@@ -261,22 +269,31 @@ function clickhouse_install() {
 
 function clickhouse_uninstall() {
     clickhouse_stop
-    clickhouse_pkg_names=$(rpm -qa | grep clickhouse)
-    clickhouse_array_names=(${clickhouse_pkg_names})
-    target=$(rpm -qa | grep clickhouse-common-static)
-    sorted=($(echo "${clickhouse_array_names[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' '))
-    clickhouse_array_names=(${clickhouse_array_names[@]/$target})
-    clickhouse_array_names+=($target)
-    for name in "${clickhouse_array_names[@]}"; do
-            split_name=$(echo ${name%-*})
-            split_name=$(echo ${split_name%-*})
-            # echo $split_name
-            if [ $? -eq 0 ]; then
-                rpm -e ${split_name}
-            else
-                log_info "${split_name} is already uninstalled"
-            fi
-    done
+#    clickhouse_pkg_names=$(rpm -qa | grep clickhouse)
+#    clickhouse_array_names=("${clickhouse_pkg_names}")
+#    target=$(rpm -qa | grep clickhouse-common-static)
+#    sorted=("$(echo "${clickhouse_array_names[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' ')")
+#    clickhouse_array_names=("${clickhouse_array_names[@]/$target}")
+#    clickhouse_array_names+=("${target}")
+#    for name in "${clickhouse_array_names[@]}"; do
+#            split_name=$(echo ${name%-*})
+#            split_name=$(echo ${split_name%-*})
+#            if [ $? -eq 0 ]; then
+#                rpm -e ${split_name}
+#                log_info "${split_name} is uninstalling"
+#            else
+#                log_info "${split_name} is already uninstalled"
+#            fi
+#    done
+    # check if nms packages is already installing
+    clickhouse_pkg_status=$(rpm -qa | grep ${clickhouse_server} >/dev/null &&  echo yes || echo no)
+    if [ ${clickhouse_pkg_status} == "no" ]; then
+        log_info "${clickhouse_server} is already uninstalled"
+    else
+        yum -y remove clickhouse-client clickhouse-server clickhouse-common-static >/dev/null
+        log_info "${clickhouse_server} is uninstalling"
+    fi
+
 }
 
 function clickhouse_start() {
@@ -331,25 +348,20 @@ function clickhouse_status() {
 function set_password() {
         random_number=$(date +%s%N|md5sum|head -c 5)
         # set default password is admin
+        username="admin"
         password=${password:-admin}
         tmp_script=tmp_${random_number}.sh
         echo  "#!/usr/bin/expect">"${tmp_script}"
-        echo  "spawn htpasswd  ${password_file} admin">>"${tmp_script}"
+        echo  "spawn htpasswd  ${password_file} ${username}">>"${tmp_script}"
         echo  "expect *.password:">>"${tmp_script}"
         echo  "send ${password}\r">>"${tmp_script}"
         echo  "expect *.password:">>"${tmp_script}"
         echo  "send ${password}\r">>"${tmp_script}"
-        echo  "interact">>"${tmp_script}"
+        echo  "expect eof">>"${tmp_script}"
 
         chmod +x "${tmp_script}"
 
         /usr/bin/expect "${tmp_script}"
-        if [  $? -eq 0  ]; then
-            log_info "nim password is changed"
-        else
-            log_error "nim password is changed"
-        fi
-        rm "${tmp_script}"
 }
 
 function nim_install() {
@@ -372,12 +384,11 @@ function nim_install() {
     if [ ${nim_pkg_names_status} == "yes" ]; then
         log_info "${nim_pkg_name} is already installed"
     else
-        target=$(ls ${nim_dir} | grep ${nim_pkg_name})
-        rpm -ivh ${nim_dir}/${target} >/dev/null
+        yum -y localinstall ${nim_dir}/*  >/dev/null
         log_info "${nim_pkg_name} is installing"
     fi
 
-    # starting nginx manager service
+    # starting nginx instanc manager service
     nim_start
 
     password_file=$(find /etc/nms/nginx/ -type f -iname .htpasswd)
@@ -387,11 +398,27 @@ function nim_install() {
     else
         log_info "change default password for web ui login"
         set_password >/dev/null
+        if [  $? -eq 0  ]; then
+            log_info "nim password is changed"
+        else
+            log_error "nim password is changed"
+        fi
+
+    fi
+    # delete tmp script
+    cleanup
+    # restarting nginxplus service
+    nginxplus_restart
+
+    if [[ ${cmd} == "nim" ]]; then
+        print_login_prompt
     fi
 }
 
 function nim_uninstall() {
+    # stop nim service
     nim_stop
+    # uninstall nim service
     nim_pkg_names_status=$(rpm -qa | grep ${nim_pkg_name} >/dev/null &&  echo yes || echo no)
     if [ ${nim_pkg_names_status} == "yes" ]; then
         yum -y remove ${nim_pkg_name}  >/dev/null
@@ -399,27 +426,21 @@ function nim_uninstall() {
     else
         log_info "${nim_pkg_name} is already uninstalled"
     fi
-
+    # uninstall nginxplus service
     nginxplus_uninstall
-
+    # uninstall clickhouse service
     clickhouse_uninstall
 }
 
 
 function nim_start() {
     for name in ${nms_names[*]}; do
-        nim_status=$(ps -ef | grep ${name}  | grep -v grep >/dev/null &&  echo yes || echo no)
-        if [ ${nim_status} == "no" ]; then
             systemctl start ${name}; systemctl enable ${name} >/dev/null 2>&1
             if [ $? -eq 0 ];then
                 log_info "${name} is running"
             else
                 log_error "${name} is stopping"
             fi
-        else
-            log_info "${name} is already running"
-            break
-        fi
     done
 }
 
@@ -642,11 +663,11 @@ function nginxplus_status() {
 
 function print_login_prompt() {
 echo "
-********************Web Login Prompt********************************
-    Login link https://${IP}/ui/
+******************** Web Login Prompt ********************************
+    Login link: https://${IP}/ui/
     Admin username: admin
     Admin password: admin
-********************Web Login Prompt********************************
+******************** Web Login Prompt ********************************
 "
 }
 
@@ -749,15 +770,14 @@ function version() {
     echo "nms-automatic-deployment version: ${version_number}"
 }
 
-version_help() {
+function version_help() {
     cat <<EOF
-Print the current Tools version.
+Print the current nms-automatic-deployment version.
 
 Usage:
   $(basename "$0") version
 EOF
 }
-
 
 
 cmd=$1
