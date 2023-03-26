@@ -1,6 +1,6 @@
 # nms-automatic-deployment
 
-This is an NGINX Management Suite installation and deployment tool that gets applications up and running quickly, efficiently, and reliably, solving 
+This is an NGINX Management Suite offline installation and deployment tool that gets applications up and running quickly, efficiently, and reliably, solving 
 problems such as the difficulty of installing and deploying our services offline.
 
 ## Requirements
@@ -13,6 +13,13 @@ The script is only running CentOS 7 System
 ## Usage
 
 This is a basic usage, you can learn more about it.
+
+First, you need to download the installation package to the specified directory, as follows:
+
+* Clickhouse package: You can download it to the corresponding directory by using the command `./nms-automatic-deployment.sh clickhouse download` to the corresponding directory
+* nginx package: You can download the package by using the command`./nms-automatic-deployment.sh nginx download`to the corresponding directory.
+* nim and acm packages: NGINX Management Suite is a trial version or a paid subscription application, you need to download the required installation package to the corresponding directory. [Sign up for NGINX Management Suite at MyF5](https://account.f5.com/myf5).
+
 ```shell
 # This is the entire file directory hierarchy, if you want to use this script, you need to download the installation package to the corresponding directory 
 # in advance, you can run the script to perform installation and deployment operations
@@ -59,16 +66,16 @@ This is a basic usage, you can learn more about it.
 │      │        ├── nginx-plus-module-xslt-28-1.el7.ngx.x86_64.rpm
 │      │		└── nginx-sync-1.1-1.el7.ngx.noarch.rpm
 │      └── nim
-│          └── nms-instance-manager-2.7.0-727255265.el7.ngx.x86_64.rpm
+│           └── nms-instance-manager-2.7.0-727255265.el7.ngx.x86_64.rpm
 └── README.md
 [root@localhost nms-automatic-deployment]# ./nms-automatic-deployment.sh -h
 Usage:
   nms-automatic-deployment.sh help | -h | --help
-  nms-automatic-deployment.sh clickhouse (start|stop|restart|status|install|uninstall)
-  nms-automatic-deployment.sh nginx (start|stop|restart|status|install|uninstall)
+  nms-automatic-deployment.sh clickhouse (start|stop|restart|status|install|uninstall|download)
+  nms-automatic-deployment.sh nginx (start|stop|restart|status|install|uninstall|download)
   nms-automatic-deployment.sh nginxplus (start|stop|restart|status|install|uninstall)
   nms-automatic-deployment.sh nim (start|stop|restart|status|install|uninstall)
-  nms-automatic-deployment.sh nms (start|stop|restart|status|install|uninstall)
+  nms-automatic-deployment.sh acm (start|stop|restart|status|install|uninstall)
   nms-automatic-deployment.sh version
 
 Options:
@@ -107,7 +114,6 @@ This is an example of deploying the acm service, as follows：
  nms-instance-manager is installing sucessed. 
  nms is already running sucessed. 
  change default password for web ui login sucessed. 
-Warning: RPMDB altered outside of yum.
  nms-api-connectivity-manager is installing sucessed. 
  nms is already running sucessed. 
  nms-api-connectivity-manager is running sucessed. 

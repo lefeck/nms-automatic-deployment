@@ -51,17 +51,15 @@ acm_service_name="nms-acm"
 acm_pkg_name="nms-api-connectivity-manager"
 acm_dir="${script_dir}"/pkgs/acm
 
-
-
 function help() {
     cat <<EOF
 Usage:
   $(basename "$0") help | -h | --help
-  $(basename "$0") clickhouse (start|stop|restart|status|install|uninstall)
-  $(basename "$0") nginx (start|stop|restart|status|install|uninstall)
+  $(basename "$0") clickhouse (start|stop|restart|status|install|uninstall|download)
+  $(basename "$0") nginx (start|stop|restart|status|install|uninstall|download)
   $(basename "$0") nginxplus (start|stop|restart|status|install|uninstall)
   $(basename "$0") nim (start|stop|restart|status|install|uninstall)
-  $(basename "$0") nms (start|stop|restart|status|install|uninstall)
+  $(basename "$0") acm (start|stop|restart|status|install|uninstall)
   $(basename "$0") version
 
 Options:
@@ -71,7 +69,7 @@ Options:
   nginxplus       Stop, start, or check the current status of NGINX Plus.
   nim             Stop, start, or check the current status of NGINX Instance Manager.
   acm             Stop, start, or check the current status of NGINX Management Suite API Connectivity Manager.
-  version         Show the tools version
+  version         Show the nms-automatic-deployment version
 EOF
 }
 
@@ -80,7 +78,7 @@ function nginx_help() {
 Stop, start, or check current status of NGINX.
 
 Usage:
-  $(basename "$0") nginx (start|stop|restart|status|install|uninstall)
+  $(basename "$0") nginx (start|stop|restart|status|install|uninstall|download)
 
 
 Options:
@@ -88,8 +86,9 @@ Options:
   stop      Stop NGINX.
   restart   Restart NGINX.
   status    Show status of NGINX.
-  install   deploy NGINX instances.
-  uninstall uninstall NGINX intances.
+  install   deploy NGINX.
+  uninstall uninstall NGINX.
+  download  download NGINX.
 EOF
 }
 
@@ -118,7 +117,7 @@ function clickhouse_help() {
 Stop, start, or check current status of Clickhouse Server.
 
 Usage:
-  $(basename "$0") clickhouse (start|stop|restart|status|install|uninstall)
+  $(basename "$0") clickhouse (start|stop|restart|status|install|uninstall|download)
 
 
 Options:
@@ -126,7 +125,9 @@ Options:
   stop      Stop clickhouse server.
   restart   Restart clickhouse server.
   status    Show status of clickhouse server.
-  reconcile Manually recreate platform settings secret for clickhouse server.
+  install   deploy clickhouse server.
+  uninstall uninstall clickhouse server.
+  download  download clickhouse server.
 EOF
 }
 
@@ -168,7 +169,8 @@ EOF
 }
 
 
-IP=$(ip addr list |  grep -o -e 'inet [0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}'|grep -v "127.0.0"|awk '{print $2}')
+IP=$(ip addr list |  grep -o -e 'inet [0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}'|grep -v "127.0.0.2"|awk '{print $2}')
+
 # Execution successful log printing path
 function log_info () {
     echo "${DATE_N} ${HOST_NAME} ${USER_N} execute $0 [INFO] $@ sucessed." >> ${LOGFILE}
@@ -184,7 +186,7 @@ function log_warn () {
 
 # Execution failure log print path
 function log_error () {
-    echo -e "\033[41;37m ${DATE_N} ${HOST_NAME} ${USER_N} execute $0 [ERROR] $@ failed.\033[0m"  >> ${LOGFILE}
+    echo -e "\033[41;37m ${DATE_N} ${HOST_NAME} ${USER_N} execute $0 [ERROR] $@ failed. \033[0m"  >> ${LOGFILE}
     echo -e "\033[41;37m $@ failed. \033[0m"
     exit 1
 }
@@ -236,17 +238,18 @@ function os_preinstall() {
     sed -i "s/GSSAPIAuthentication yes/GSSAPIAuthentication no/g" /etc/ssh/sshd_config
     systemctl restart sshd
 
-    log_info "🔎 Checking for required utilities..."
+    log_info "Checking for required utilities..."
     if [[ ! -x "$(command -v expect)" ]];then
             yum -y install expect
             log_info "expect has been installed on Centos/Redhat 7"
     fi
 
-    [[ ! -x "$(command -v expect)" ]] && log_error " expect is not installed. On Centos/Redhat 7, install the 'expect' package."
+#    [[ -x "$(command -v expect)" ]] && log_error " expect is not installed. On Centos/Redhat 7, install the 'expect' package."
 }
 
 os_preinstall
 
+# install clickhouse-server service
 function clickhouse_install() {
     # check if nms packages is already installing
     clickhouse_pkg_status=$(rpm -qa | grep ${clickhouse_server} >/dev/null &&  echo yes || echo no)
@@ -266,25 +269,9 @@ function clickhouse_install() {
         log_info "clickhouse-server is running"
     fi
 }
-
+# uninstall clickhouse-server service
 function clickhouse_uninstall() {
     clickhouse_stop
-#    clickhouse_pkg_names=$(rpm -qa | grep clickhouse)
-#    clickhouse_array_names=("${clickhouse_pkg_names}")
-#    target=$(rpm -qa | grep clickhouse-common-static)
-#    sorted=("$(echo "${clickhouse_array_names[@]}" | tr ' ' '\n' | sort -u | tr '\n' ' ')")
-#    clickhouse_array_names=("${clickhouse_array_names[@]/$target}")
-#    clickhouse_array_names+=("${target}")
-#    for name in "${clickhouse_array_names[@]}"; do
-#            split_name=$(echo ${name%-*})
-#            split_name=$(echo ${split_name%-*})
-#            if [ $? -eq 0 ]; then
-#                rpm -e ${split_name}
-#                log_info "${split_name} is uninstalling"
-#            else
-#                log_info "${split_name} is already uninstalled"
-#            fi
-#    done
     # check if nms packages is already installing
     clickhouse_pkg_status=$(rpm -qa | grep ${clickhouse_server} >/dev/null &&  echo yes || echo no)
     if [ ${clickhouse_pkg_status} == "no" ]; then
@@ -296,6 +283,7 @@ function clickhouse_uninstall() {
 
 }
 
+# start clickhouse_server service
 function clickhouse_start() {
     systemctl daemon-reload
     clickhouse_server_status=$(ps -ef | grep clickhouse-server | grep -v grep >/dev/null &&  echo yes || echo no)
@@ -311,6 +299,7 @@ function clickhouse_start() {
     fi
 }
 
+# restart clickhouse_server service
 function clickhouse_restart() {
     systemctl daemon-reload
     systemctl restart ${clickhouse_server}
@@ -320,9 +309,8 @@ function clickhouse_restart() {
         log_error "${clickhouse_server} is stopping"
     fi
 }
-
+# stop clickhouse-server service
 function clickhouse_stop() {
-    # stop clickhouse-server service
     clickhouse_server_status=$(ps -ef | grep clickhouse-server  | grep -v grep >/dev/null &&  echo yes || echo no)
     if [ ${clickhouse_server_status} == "yes" ]; then
         systemctl stop ${clickhouse_server}
@@ -335,7 +323,7 @@ function clickhouse_stop() {
         log_info "${clickhouse_server} is already stopping"
     fi
 }
-
+# show clickhouse-server service status
 function clickhouse_status() {
     clickhouse_server_status=$(systemctl status ${clickhouse_server} >/dev/null &&  echo yes || echo no)
     if [ "${clickhouse_server_status}" == "yes" ]; then
@@ -344,7 +332,20 @@ function clickhouse_status() {
         log_info "${clickhouse_server} is stopping"
     fi
 }
+# download clickhouse-server service
+function clickhouse_download() {
+    log_info "${clickhouse_server} is downloading"
+	  yum-config-manager --add-repo https://packages.clickhouse.com/rpm/clickhouse.repo >/dev/null
+	  yum install --downloadonly --downloaddir=${clickhouse_dir}/ clickhouse-server clickhouse-client >/dev/null 2>&1
+		if [ $? -eq 0 ];then
+        log_info "${clickhouse_server} is downloading"
+    else
+        log_error "${clickhouse_server} is downloading"
+    fi
 
+}
+
+# set web login password for admin username
 function set_password() {
         random_number=$(date +%s%N|md5sum|head -c 5)
         # set default password is admin
@@ -364,14 +365,10 @@ function set_password() {
         /usr/bin/expect "${tmp_script}"
 }
 
+# install nim  service
 function nim_install() {
     # check if clickhouse is installed
-    verify_clickhouse_pkgs=$(rpm -qa | grep clickhouse >/dev/null &&  echo yes || echo no)
-    if [ ${verify_clickhouse_pkgs} == "yes" ]; then
-        log_info "clickhouse is already installing"
-    else
-        clickhouse_install
-    fi
+    clickhouse_install
 
     # check if clickhouse server is running, otherwise, startup clickhouse server
     clickhouse_start
@@ -394,7 +391,6 @@ function nim_install() {
     password_file=$(find /etc/nms/nginx/ -type f -iname .htpasswd)
     if [ -z ${password_file} ]; then
         log_error "${password_file} is not exist"
-        exit 1
     else
         log_info "change default password for web ui login"
         set_password >/dev/null
@@ -407,14 +403,16 @@ function nim_install() {
     fi
     # delete tmp script
     cleanup
-    # restarting nginxplus service
-    nginxplus_restart
 
     if [[ ${cmd} == "nim" ]]; then
+        # restarting nginxplus service
+        nginxplus_restart
+        # print web login prompt
         print_login_prompt
     fi
 }
 
+# uninstall nim  service
 function nim_uninstall() {
     # stop nim service
     nim_stop
@@ -432,7 +430,7 @@ function nim_uninstall() {
     clickhouse_uninstall
 }
 
-
+# start nim  service
 function nim_start() {
     for name in ${nms_names[*]}; do
             systemctl start ${name}; systemctl enable ${name} >/dev/null 2>&1
@@ -444,6 +442,7 @@ function nim_start() {
     done
 }
 
+# restart nim  service
 function nim_restart() {
     for name in ${nms_names[*]}; do
         systemctl restart ${name}
@@ -455,6 +454,7 @@ function nim_restart() {
     done
 }
 
+# stop nim  service
 function nim_stop() {
     # stop nginx manager service
     for name in ${nms_names[*]}; do
@@ -474,6 +474,7 @@ function nim_stop() {
     done
 }
 
+# show nim service status
 function nim_status() {
     for name in ${nms_names[*]}; do
         nim_status=$(systemctl status ${name} >/dev/null 2>&1 &&  echo yes || echo no)
@@ -490,9 +491,7 @@ function nim_status() {
     done
 }
 
-
-
-# check if nginx package is install, otherwise, install nginx
+# check if nginx package is install, otherwise, install nginx service
 function nginx_install() {
     # check install packages is normal
     nginx_pkg_status=$(rpm -qa | grep nginx | grep -v grep >/dev/null &&  echo yes || echo no)
@@ -507,7 +506,7 @@ function nginx_install() {
     # check if nginx is running, otherwise, startup nginx
     nginx_start
 }
-
+# install nginx service
 function nginx_uninstall() {
     nginx_stop
     nginx_pkg_names_status=$(rpm -qa | grep nginx >/dev/null &&  echo yes || echo no)
@@ -519,23 +518,18 @@ function nginx_uninstall() {
     fi
 }
 
-
+# start nginx service
 function nginx_start() {
     systemctl daemon-reload
-    # nginx_status=$(ps -ef | grep ${nginx} | grep -v grep >/dev/null &&  echo yes || echo no)
-    #ps -ef | grep ${nginx} | grep -v grep >/dev/null
-    # if [ $? -ne 0 ]; then
     systemctl start ${nginx}; systemctl enable ${nginx} >/dev/null 2>&1
     if [ $? -eq 0 ];then
         log_info "${nginx} is running"
     else
         log_error "${nginx} is stopping"
     fi
-        # else
-        #     log_info "${nginx} is already running"
-    # fi
 }
 
+# resstart nginx service
 function nginx_restart() {
     systemctl daemon-reload
     systemctl restart ${nginx}
@@ -546,6 +540,7 @@ function nginx_restart() {
     fi
 }
 
+# stop nginx service
 function nginx_stop() {
     # stop clickhouse-server service
     nginx_status=$(ps -ef | grep ${nginx} | grep -v grep >/dev/null &&  echo yes || echo no)
@@ -561,6 +556,7 @@ function nginx_stop() {
     fi
 }
 
+# show nginx service status
 function nginx_status() {
         nginx_status=$(systemctl status ${nginxplus_service_name} >/dev/null &&  echo yes || echo no)
         if [ ${nginx_status} == "yes" ]; then
@@ -569,7 +565,36 @@ function nginx_status() {
             log_info "${nginx} is stopping"
         fi
 }
+# download nginx service
+function nginx_download() {
 
+	  cp /etc/yum.repos.d/nginx.repo /etc/yum.repos.d/nginx.repo.bak || true
+
+	  cat << 'eof' >  /etc/yum.repos.d/nginx.repo
+[nginx-stable]
+name=nginx stable repo
+baseurl=http://nginx.org/packages/centos/$releasever/$basearch/
+gpgcheck=1
+enabled=1
+gpgkey=https://nginx.org/keys/nginx_signing.key
+module_hotfixes=true
+
+[nginx-mainline]
+name=nginx mainline repo
+baseurl=http://nginx.org/packages/mainline/centos/$releasever/$basearch/
+gpgcheck=1
+enabled=1
+gpgkey=https://nginx.org/keys/nginx_signing.key
+module_hotfixes=true
+eof
+	  yum install --downloadonly --downloaddir=${nginx_dir} nginx >/dev/null
+	  if [ $? -eq 0 ];then
+       log_info "${nginx} is downloading"
+    else
+       log_error "${nginx} is downloading"
+    fi
+}
+# install nginxplus  service
 function nginxplus_install() {
     #Installation instructions for RHEL 7.4+ / CentOS 7.4+
     #If you already have old NGINX packages in your system, back up your configs and logs:
@@ -601,7 +626,7 @@ function nginxplus_install() {
     # start nginxplus service
     nginxplus_start
 }
-
+# uninstall nginxplus  service
 function nginxplus_uninstall() {
     # stop nginx plus
     nginxplus_stop
@@ -615,6 +640,7 @@ function nginxplus_uninstall() {
     fi
 }
 
+# start nginxplus  service
 function nginxplus_start() {
     systemctl daemon-reload
     systemctl start ${nginxplus_service_name}
@@ -626,6 +652,7 @@ function nginxplus_start() {
     fi
 }
 
+# restart nginxplus  service
 function nginxplus_restart() {
     systemctl daemon-reload
     systemctl restart ${nginxplus_service_name}
@@ -635,7 +662,7 @@ function nginxplus_restart() {
         log_error "${nginxplus_pkg_name} is stopping"
     fi
 }
-
+# stop nginxplus  service
 function nginxplus_stop() {
     # stop clickhouse-server service
     nginxplus_status=$(ps -ef | grep ${nginxplus_service_name} | grep -v grep >/dev/null &&  echo yes || echo no)
@@ -651,6 +678,7 @@ function nginxplus_stop() {
     fi
 }
 
+# show nginxplus service status
 function nginxplus_status() {
         nginxplus_status=$(systemctl status ${nginxplus_service_name} >/dev/null &&  echo yes || echo no)
         if [ ${nginxplus_status} == "yes" ]; then
@@ -660,7 +688,7 @@ function nginxplus_status() {
         fi
 }
 
-
+# show web login prompt
 function print_login_prompt() {
 echo "
 ******************** Web Login Prompt ********************************
@@ -671,8 +699,8 @@ echo "
 "
 }
 
+# install acm  service
 function acm_install() {
-
     # install and start nim service
     nim_install
 
@@ -690,11 +718,12 @@ function acm_install() {
 
     # restart nginxplus service
     nginxplus_restart
-    
+
+    # show web login prompt
     print_login_prompt
 }
 
-
+# uninstall acm  service
 function acm_uninstall() {
     # uninstall nim service
     nim_uninstall
@@ -708,7 +737,7 @@ function acm_uninstall() {
         log_info "${acm_pkg_name} is already uninstalled"
     fi
 }
-
+# start acm  service
 function acm_start() {
     # start nim service
     nim_start
@@ -725,7 +754,7 @@ function acm_start() {
             log_info "${acm_pkg_name} is already running"
     fi
 }
-
+# restart acm  service
 function acm_restart() {
     # restart nim service
     nim_restart
@@ -738,6 +767,7 @@ function acm_restart() {
     fi
 }
 
+# stop acm  service
 function acm_stop() {
     # stop nim service
     nim_stop
@@ -755,6 +785,7 @@ function acm_stop() {
     fi
 }
 
+# show acm service status
 function acm_status() {
     acm_status=$(systemctl status ${acm_service_name} >/dev/null &&  echo yes || echo no)
     if [ ${acm_status} == "yes" ]; then
@@ -764,7 +795,7 @@ function acm_status() {
     fi
 }
 
-
+# show nms-automatic-deployment version id
 function version() {
     version_number="0.1"
     echo "nms-automatic-deployment version: ${version_number}"
@@ -834,6 +865,9 @@ case $cmd in
             status)
                 clickhouse_status
                 ;;
+            download)
+                clickhouse_download
+                ;;
             help | -h | --help)
                 clickhouse_help
                 exit 0
@@ -896,6 +930,9 @@ case $cmd in
                 ;;
             status)
                 nginx_status
+                ;;
+            download)
+                nginx_download
                 ;;
             help | -h | --help)
                 nginx_help
