@@ -1,11 +1,11 @@
 # nms-automatic-deployment
 
 This is an NGINX Management Suite offline installation and deployment tool that gets applications up and running quickly, efficiently, and reliably, solving 
-problems such as the difficulty of installing and deploying our services offline.
+problems such as the difficulty of installing and deploying our services.
 
 ## Requirements
 
-The script is only running CentOS 7 System
+The script is only running CentOS 7.4+ System
 
 ## Utilities required:
 > expect
@@ -17,8 +17,8 @@ This is a basic usage, you can learn more about it.
 First, you need to download the installation package to the specified directory, as follows:
 
 * Clickhouse package: You can download it to the corresponding directory by using the command `./nms-automatic-deployment.sh clickhouse download` to the corresponding directory
-* nginx package: You can download the package by using the command`./nms-automatic-deployment.sh nginx download`to the corresponding directory.
-* nim and acm packages: NGINX Management Suite is a trial version or a paid subscription application, you need to download the required installation package to the corresponding directory. [Sign up for NGINX Management Suite at MyF5](https://account.f5.com/myf5).
+* Nginx package: You can download the package by using the command`./nms-automatic-deployment.sh nginx download`to the corresponding directory.
+* Nginx Plus, nim and acm packages: NGINX Management Suite is a trial version or a paid subscription application, you need to download the required installation package to the corresponding directory. [Sign up for NGINX Management Suite at MyF5](https://account.f5.com/myf5).
 
 ```shell
 # This is the entire file directory hierarchy, if you want to use this script, you need to download the installation package to the corresponding directory 
@@ -119,11 +119,11 @@ This is an example of deploying the acm service, as follows：
  nms-api-connectivity-manager is running sucessed. 
  nginx-plus is restart sucessed. 
 
-********************Web Login Prompt********************************
+******************** Web Login Prompt ********************************
     Login link: https://192.168.10.179/ui/
-    Admin username: admin
-    Admin password: admin
-********************Web Login Prompt********************************
+    Username: admin
+    Password: admin
+******************** Web Login Prompt ********************************
  [root@localhost nms-automatic-deployment]# ss -tunlp
 Netid  State      Recv-Q Send-Q                             Local Address:Port                                            Peer Address:Port              
 tcp    LISTEN     0      4096                                   127.0.0.1:9009                                                       *:*                   users:(("clickhouse-serv",pid=4963,fd=428))

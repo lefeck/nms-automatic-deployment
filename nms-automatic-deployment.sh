@@ -693,8 +693,8 @@ function print_login_prompt() {
 echo "
 ******************** Web Login Prompt ********************************
     Login link: https://${IP}/ui/
-    Admin username: admin
-    Admin password: admin
+    Username: admin
+    Password: admin
 ******************** Web Login Prompt ********************************
 "
 }
