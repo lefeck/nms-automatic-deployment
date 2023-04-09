@@ -9,6 +9,7 @@ The script is only running CentOS 7.4+ System
 
 ## Utilities required:
 > expect
+> httpd-tools
 
 ## Usage
 

@@ -169,7 +169,7 @@ EOF
 }
 
 
-IP=$(ip addr list |  grep -o -e 'inet [0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}'|grep -v "127.0.0.2"|awk '{print $2}')
+IP=$(ip addr list |  grep -o -e 'inet [0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}'|grep -v "127.0.0.1"|awk '{print $2}')
 
 # Execution successful log printing path
 function log_info () {
@@ -244,6 +244,11 @@ function os_preinstall() {
             log_info "expect has been installed on Centos/Redhat 7"
     fi
 
+    if [[ ! -x "$(command -v htpasswd)" ]];then
+            yum -y install httpd-tools
+            log_info "httpd-tools has been installed on Centos/Redhat 7"
+    fi
+
 #    [[ -x "$(command -v expect)" ]] && log_error " expect is not installed. On Centos/Redhat 7, install the 'expect' package."
 }
 
@@ -260,8 +265,13 @@ function clickhouse_install() {
         log_info "${clickhouse_server} is installing"
     fi
 
+    # change configure file clickhouse-server.service
+    sed -i 's/TimeoutStartSec=infinity/TimeoutStartSec=0/g'  /usr/lib/systemd/system/clickhouse-server.service
+    systemctl daemon-reload
+    systemctl disable clickhouse-server.service >/dev/null 2>&1
+
     # start clickhouse_server app
-    systemctl start clickhouse-server.service && systemctl enable clickhouse-server.service
+    systemctl start clickhouse-server.service && systemctl enable clickhouse-server.service >/dev/null 2>&1
     process_number=$(ps -ef | grep clickhouse-server | grep -v grep | wc -l)
     if [ $process_number -eq 0 ]; then
         log_error "clickhouse-server startup error"
