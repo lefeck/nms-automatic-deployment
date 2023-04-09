@@ -8,7 +8,7 @@ problems such as the difficulty of installing and deploying our services.
 The script is only running CentOS 7.4+ System
 
 ## Utilities required:
-> expect
+> expect  
 > httpd-tools
 
 ## Usage
