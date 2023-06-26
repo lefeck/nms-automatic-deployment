@@ -24,32 +24,11 @@ LOGFILE="/var/log/nms_install.log"
 # Gets the current location of the script
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd -P)
 
-mkdir -p "${script_dir}"/pkgs/{clickhouse-server,nginx,nginxplus,nim,acm,cert} || true
+#mkdir -p "${script_dir}"/pkgs/{deb,rpm}/{cenot7,centos8,centos9,ubuntu20,ubuntu22}/{clickhouse-server,nginx,nginxplus,nim,acm,cert} || true
 
-# clickhouse server parameters
-clickhouse_server="clickhouse-server"
-clickhouse_dir="${script_dir}"/pkgs/clickhouse-server
 
-# nginx parameters
-nginx="nginx"
-nginx_dir="${script_dir}"/pkgs/nginx
-
-# nginx plus parameters
-nginxplus_service_name="nginx"
-nginxplus_pkg_name="nginx-plus"
-nginxplus_dir="${script_dir}"/pkgs/nginxplus
-nginxplus_cert_dir="${script_dir}"/pkgs/cert
-nginxplus_ssl_dir="/etc/ssl/nginx"
-
-# nim parameters
-nim_dir="${script_dir}"/pkgs/nim
-nim_pkg_name="nms-instance-manager"
-nms_names=(nms nms-core nms-dpm nms-ingestion nms-integrations)
-
-# acm parameters
-acm_service_name="nms-acm"
-acm_pkg_name="nms-api-connectivity-manager"
-acm_dir="${script_dir}"/pkgs/acm
+redhat_series=""
+debian_series=""
 
 function help() {
     cat <<EOF
@@ -168,7 +147,6 @@ Options:
 EOF
 }
 
-
 IP=$(ip addr list |  grep -o -e 'inet [0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}.[0-9]\{1,3\}'|grep -v "127.0.0.1"|awk '{print $2}')
 
 # Execution successful log printing path
@@ -205,65 +183,142 @@ function log_trap() {
     trap 'fn_log "DO NOT SEND CTR + C WHEN EXECUTE SCRIPT !!!! "' 2
 }
 
+function os_check() {
+        if [ -e /etc/redhat-release ]; then
+                redhat_series=$(cat /etc/redhat-release | cut -d' '  -f1)
+        else
+                debian_series=$(cat /etc/issue | cut -d' ' -f1 | head -1)
+        fi
 
-function os_preinstall() {
-    # check whether it is root user login
-    if [[ $(id -u) != "0" ]]; then
-        echo  -e "\033[32m not root user \033[0m"
-        log_error "You must be root to run this install script."
-        exit 1
-    fi
+        if [ "${redhat_series}" == "CentOS" -o "${redhat_series}" == "Red" ]; then
+                utils_cmd=yum
+                os_redhat_release=$(cat /etc/os-release | grep CENTOS_MANTISBT_PROJECT= | awk -F'=' '{print $2}' | sed 's/\"//g')
+                	if [ "${os_redhat_release}" == "CentOS-7" ]; then
+                		pkg_path="rpm/centos7"
+                	elif [ "${os_redhat_release}" == "CentOS-8" ]; then
+                		pkg_path="rpm/centos8"
+                	elif [ "${os_redhat_release}" == "CentOS-9" ]; then
+                		pkg_path="rpm/centos9"
+                	else
+                		log_error "Operating system does not support."
+                	fi
+        elif [ "${debian_series}" == "Ubuntu" -o "${debian_series}" == "ubutnu" ]; then
+                utils_cmd="sudo apt-get"
+                os_debain_release_name=$(cat /etc/os-release | grep -w NAME | awk -F'=' '{print $2}' | sed 's/\"//g')
+                os_debain_release_version=$(cat /etc/os-release | grep -w VERSION_ID | awk -F'=' '{print $2}' | sed 's/\"//g' | awk -F'.' '{print $1}' )
+                latest_os_debain_release=${os_debain_release_name}-${os_debain_release_version}
+                	if [ "${latest_os_debain_release}" == "Ubuntu-20" ]; then
+                		pkg_path="deb/ubuntu20"
+                	elif [ "${latest_os_debain_release}" == "Ubuntu-22" ]; then
+                		pkg_path="deb/ubuntu22"
+                	else
+                		log_error "Operating system does not support."
+                	fi
+        else
+              log_error "Operating system does not support."
+        fi
+}
 
-    # Check whether it is CentOS/RedHat 7.4 or above version
-    if [[ $(grep "release 7." /etc/redhat-release 2>/dev/null | wc -l) -eq 0 ]]; then
-        echo  -e "\033[32m Your OS is NOT CentOS 7.4 or above RHEL 7.4 \033[0m"
-        log_error "Your OS is NOT CentOS 7.4 or above RHEL 7.4"
-        exit 1
-    fi
 
-    # disable selinux
-    setenforce 0 >/dev/null 2>&1 || true
-    sed -i s/SELINUX=enforcing/SELINUX=disabled/ /etc/selinux/config
-    # disable firewall
-    systemctl stop firewalld
-    systemctl disable firewalld
-    # disable swap parttion
-    swapoff -a
-
-    #configure ssh
-    cat /etc/ssh/sshd_config | grep "UseDNS no" >/dev/null 2>&1 || {
-        sed -i '/#VersionAddendum none/a\UseDNS no' /etc/ssh/sshd_config
-        log_info "disabled ssh reverse domain name resolution"
-    }
-    sed -i "s/GSSAPIAuthentication yes/GSSAPIAuthentication no/g" /etc/ssh/sshd_config
-    systemctl restart sshd
-
-    log_info "Checking for required utilities..."
+function os_preconfig() {
+    os_check
+   # log_info "Checking for required utilities..."
     if [[ ! -x "$(command -v expect)" ]];then
-            yum -y install expect
-            log_info "expect has been installed on Centos/Redhat 7"
+            ${utils_cmd} -y install expect >/dev/null
+            if [ -z ${debian_series} ]; then
+              log_info "expect has been installed on Centos/Redhat"
+            else
+              log_info "expect has been installed on Ubuntu/Debian "
+            fi
     fi
 
     if [[ ! -x "$(command -v htpasswd)" ]];then
-            yum -y install httpd-tools
-            log_info "httpd-tools has been installed on Centos/Redhat 7"
+
+            if [ -z ${debian_series} ]; then
+               ${utils_cmd} -y install httpd-tools >/dev/null
+            else
+              ${utils_cmd}  -y install apache2-utils >/dev/null
+            fi
+
+            if [ -z ${debian_series} ]; then
+              log_info "httpd-tools has been installed on Centos/Redhat"
+            else
+              log_info "httpd-tools has been installed on Ubuntu/Debian "
+            fi
+
+
     fi
 
-#    [[ -x "$(command -v expect)" ]] && log_error " expect is not installed. On Centos/Redhat 7, install the 'expect' package."
+    if [ ! -z ${debian_series} ]; then
+        apt-get -y purge needrestart
+    fi
+
+#    [[ ! -x "$(command -v expect)" ]] && log_error " expect is not installed. On Centos/Redhat 7, install the 'expect' package."
+#    [[ ! -x "$(command -v htpasswd)" ]] && log_error " httpd-tools is not installed. On Centos/Redhat 7, install the 'httpd-tools' package."
 }
 
-os_preinstall
+os_preconfig
+
+# testing usage
+clickhouse_dir="${script_dir}"/pkgs/${pkg_path}/clickhouse-server
+
+# clickhouse server parameters
+clickhouse_server="clickhouse-server"
+clickhouse_dir="${script_dir}"/pkgs/${pkg_path}/clickhouse-server
+
+# nginx parameters
+nginx="nginx"
+nginx_dir="${script_dir}"/pkgs/${pkg_path}/nginx
+
+# nginx plus parameters
+nginxplus_service_name="nginx"
+nginxplus_pkg_name="nginx-plus"
+nginxplus_dir="${script_dir}"/pkgs/${pkg_path}/nginxplus
+nginxplus_cert_dir="${script_dir}"/pkgs/${pkg_path}/cert
+nginxplus_ssl_dir="/etc/ssl/nginx"
+
+# nim parameters
+nim_dir="${script_dir}"/pkgs/${pkg_path}/nim
+nim_pkg_name="nms-instance-manager"
+nms_name=nms
+nms_names=(nms nms-core nms-dpm nms-ingestion nms-integrations)
+
+# acm parameters
+acm_service_name="nms-acm"
+acm_pkg_name="nms-api-connectivity-manager"
+acm_dir="${script_dir}"/pkgs/${pkg_path}/acm
+
+
+function exec_install() {
+    os_check
+    option_utils
+    # check if nms packages is already installing
+    pkg_status=$($pkgs_utils | grep $1 >/dev/null &&  echo yes || echo no)
+    if [ ${pkg_status} == "yes" ]; then
+        log_info "$1 is already installed"
+    else
+            if [ -z ${debian_series} ]; then
+                ${utils_cmd} -y localinstall  $2/* >/dev/null
+                log_info "$1 is installing"
+            else
+                ${utils_cmd} -y install  $2/* >/dev/null
+                log_info "$1 is installing"
+            fi
+    fi
+}
+
+function option_utils() {
+	  if [ -z ${debian_series} ]; then
+		    pkgs_utils="rpm -qa "
+	  else
+		    pkgs_utils="dpkg -l "
+	  fi
+}
 
 # install clickhouse-server service
 function clickhouse_install() {
-    # check if nms packages is already installing
-    clickhouse_pkg_status=$(rpm -qa | grep ${clickhouse_server} >/dev/null &&  echo yes || echo no)
-    if [ ${clickhouse_pkg_status} == "yes" ]; then
-        log_info "${clickhouse_server} is already installed"
-    else
-        yum -y localinstall ${clickhouse_dir}/* >/dev/null
-        log_info "${clickhouse_server} is installing"
-    fi
+
+    exec_install ${clickhouse_server} ${clickhouse_dir}
 
     # change configure file clickhouse-server.service
     sed -i 's/TimeoutStartSec=infinity/TimeoutStartSec=0/g'  /usr/lib/systemd/system/clickhouse-server.service
@@ -271,26 +326,39 @@ function clickhouse_install() {
     systemctl disable clickhouse-server.service >/dev/null 2>&1
 
     # start clickhouse_server app
-    systemctl start clickhouse-server.service && systemctl enable clickhouse-server.service >/dev/null 2>&1
-    process_number=$(ps -ef | grep clickhouse-server | grep -v grep | wc -l)
-    if [ $process_number -eq 0 ]; then
-        log_error "clickhouse-server startup error"
+    clickhouse_start
+}
+
+# attach parameter
+function extra_utils() {
+	  if [ -z ${debian_series} ]; then
+		    extra_argument=""
+	  else
+		    extra_argument=" --purge "
+	  fi
+}
+
+# execute uninstall packages name
+function exec_uninstall() {
+    option_utils
+
+    extra_utils
+    # check if nms packages is already uninstalling
+    pkg_status=$(${pkgs_utils} | grep  $1 >/dev/null &&  echo yes || echo no)
+    if [ ${pkg_status} == "no" ]; then
+        log_info "$1 is already uninstalled"
     else
-        log_info "clickhouse-server is running"
+        ${utils_cmd} -y  ${extra_argument} remove $@ >/dev/null
+        log_info "$1 is uninstalling"
     fi
 }
+
 # uninstall clickhouse-server service
 function clickhouse_uninstall() {
     clickhouse_stop
-    # check if nms packages is already installing
-    clickhouse_pkg_status=$(rpm -qa | grep ${clickhouse_server} >/dev/null &&  echo yes || echo no)
-    if [ ${clickhouse_pkg_status} == "no" ]; then
-        log_info "${clickhouse_server} is already uninstalled"
-    else
-        yum -y remove clickhouse-client clickhouse-server clickhouse-common-static >/dev/null
-        log_info "${clickhouse_server} is uninstalling"
-    fi
 
+   # execute uninstall packages name
+    exec_uninstall ${clickhouse_server} clickhouse-client clickhouse-server clickhouse-common-static
 }
 
 # start clickhouse_server service
@@ -387,13 +455,7 @@ function nim_install() {
     nginxplus_install
 
     # check if nms packages is already installing
-    nim_pkg_names_status=$(rpm -qa | grep ${nim_pkg_name} >/dev/null &&  echo yes || echo no)
-    if [ ${nim_pkg_names_status} == "yes" ]; then
-        log_info "${nim_pkg_name} is already installed"
-    else
-        yum -y localinstall ${nim_dir}/*  >/dev/null
-        log_info "${nim_pkg_name} is installing"
-    fi
+    exec_install ${nim_pkg_name} ${nim_dir}
 
     # starting nginx instanc manager service
     nim_start
@@ -426,14 +488,8 @@ function nim_install() {
 function nim_uninstall() {
     # stop nim service
     nim_stop
-    # uninstall nim service
-    nim_pkg_names_status=$(rpm -qa | grep ${nim_pkg_name} >/dev/null &&  echo yes || echo no)
-    if [ ${nim_pkg_names_status} == "yes" ]; then
-        yum -y remove ${nim_pkg_name}  >/dev/null
-        log_info "${nim_pkg_name} is uninstalling"
-    else
-        log_info "${nim_pkg_name} is already uninstalled"
-    fi
+    # execute uninstall packages name
+    exec_uninstall ${nim_pkg_name} ${nim_pkg_name}
     # uninstall nginxplus service
     nginxplus_uninstall
     # uninstall clickhouse service
@@ -443,12 +499,17 @@ function nim_uninstall() {
 # start nim  service
 function nim_start() {
     for name in ${nms_names[*]}; do
+        nim_status=$(systemctl is-active ${name} >/dev/null 2>&1 &&  echo yes || echo no)
+        if [ ${nim_status} == "no" ]; then
             systemctl start ${name}; systemctl enable ${name} >/dev/null 2>&1
             if [ $? -eq 0 ];then
                 log_info "${name} is running"
             else
                 log_error "${name} is stopping"
             fi
+        else
+          log_info "${name} is already running"
+        fi
     done
 }
 
@@ -479,7 +540,6 @@ function nim_stop() {
             fi
         else
             log_info  "${name} is already stopping"
-            break
         fi
     done
 }
@@ -504,14 +564,7 @@ function nim_status() {
 # check if nginx package is install, otherwise, install nginx service
 function nginx_install() {
     # check install packages is normal
-    nginx_pkg_status=$(rpm -qa | grep nginx | grep -v grep >/dev/null &&  echo yes || echo no)
-    if [ ${nginx_pkg_status} == "yes" ]; then
-        log_info "${nginx} is already installed"
-    else
-        target=$(ls ${nginx_dir} | grep nginx)
-        rpm -ivh ${nginx_dir}/${target}  >/dev/null
-        log_info "${nginx} is installing"
-    fi
+    exec_install ${nginx} ${nginx_dir}
 
     # check if nginx is running, otherwise, startup nginx
     nginx_start
@@ -519,13 +572,8 @@ function nginx_install() {
 # install nginx service
 function nginx_uninstall() {
     nginx_stop
-    nginx_pkg_names_status=$(rpm -qa | grep nginx >/dev/null &&  echo yes || echo no)
-    if [ ${nginx_pkg_names_status} == "yes" ]; then
-        rpm -e ${nginx}
-        log_info "${nginx} is uninstalling"
-    else
-        log_info "${nginx} is already uninstalled"
-    fi
+    # execute uninstall packages name
+    exec_uninstall ${nginx} ${nginx}
 }
 
 # start nginx service
@@ -625,14 +673,7 @@ function nginxplus_install() {
     log_info  "cp nginx-repo.key nginx-repo.crt to /etc/ssl/nginx directory"
 
     # check install packages is normal
-    nginxplus_pkg_status=$(rpm -qa | grep ${nginxplus_pkg_name} >/dev/null &&  echo yes || echo no)
-    if [ ${nginxplus_pkg_status} == "yes" ]; then
-        log_info "${nginxplus_pkg_name} is already installed"
-    else
-        yum -y localinstall ${nginxplus_dir}/*  >/dev/null
-        log_info "${nginxplus_pkg_name} is installing"
-    fi
-
+    exec_install ${nginxplus_pkg_name} ${nginxplus_dir}
     # start nginxplus service
     nginxplus_start
 }
@@ -641,13 +682,17 @@ function nginxplus_uninstall() {
     # stop nginx plus
     nginxplus_stop
 
-    nginxplus_pkg_status=$(rpm -qa | grep ${nginxplus_pkg_name} >/dev/null &&  echo yes || echo no)
-    if [ ${nginxplus_pkg_status} == "yes" ]; then
-        yum -y remove nginx-plus nginx-ha-keepalived-selinux >/dev/null
-        log_info "${nginxplus_pkg_name} is uninstalling"
-    else
-        log_info "${nginxplus_pkg_name} is already uninstalled"
-    fi
+if [ -z ${debian_series} ]; then
+	# execute uninstall packages name
+	exec_uninstall $nginxplus_pkg_name nginx-plus nginx-ha-keepalived-selinux
+else
+	# execute uninstall packages name
+	nginx_plus_mod=$(dpkg-query -l | grep nginx | awk '{print $2}')
+  new_nginx_plus_mod=(${nginx_plus_mod})
+
+  exec_uninstall  ${new_nginx_plus_mod[*]}
+fi
+
 }
 
 # start nginxplus  service
@@ -705,7 +750,7 @@ echo "
     Login link: https://${IP}/ui/
     Username: admin
     Password: admin
-******************** Web Login Prompt ********************************
+**********************************************************************
 "
 }
 
@@ -715,13 +760,7 @@ function acm_install() {
     nim_install
 
     # check install packages is normal
-    acm_pkg_status=$(rpm -qa | grep ${acm_pkg_name} >/dev/null &&  echo yes || echo no)
-    if [ ${acm_pkg_status} == "yes" ]; then
-        log_info "${acm_pkg_name} is already installed"
-    else
-        yum -y localinstall ${acm_dir}/*  >/dev/null
-        log_info "${acm_pkg_name} is installing"
-    fi
+    exec_install ${acm_pkg_name} ${acm_dir}
 
     # start acm service
     acm_start
@@ -737,22 +776,14 @@ function acm_install() {
 function acm_uninstall() {
     # uninstall nim service
     nim_uninstall
-
-    # check install packages is normal
-    acm_pkg_status=$(rpm -qa | grep nginx-devportal  >/dev/null &&  echo yes || echo no)
-    if [ ${acm_pkg_status} == "yes" ]; then
-        yum -y remove nginx-devportal  nginx-devportal-ui ${acm_pkg_name} >/dev/null
-        log_info "${acm_pkg_name} is uninstalling"
-    else
-        log_info "${acm_pkg_name} is already uninstalled"
-    fi
+    exec_uninstall nginx-devportal nginx-devportal  nginx-devportal-ui ${acm_pkg_name}
 }
 # start acm  service
 function acm_start() {
     # start nim service
     nim_start
     # start acm service
-    acm_status=$(ps -ef | grep ${acm_service_name} | grep -v grep >/dev/null &&  echo yes || echo no)
+    acm_status=$(systemctl is-active ${acm_service_name} >/dev/null &&  echo yes || echo no)
     if [ ${acm_status} == "no" ]; then
             systemctl start ${acm_service_name}; systemctl enable ${acm_service_name} >/dev/null 2>&1
             if [ $? -eq 0 ];then
@@ -761,6 +792,7 @@ function acm_start() {
                 log_error "${acm_pkg_name} is stopping"
             fi
     else
+      systemctl restart nms
             log_info "${acm_pkg_name} is already running"
     fi
 }
@@ -982,20 +1014,6 @@ case $cmd in
             *)
                 printr "Missing argument. \n"
                 acm_help
-                exit 1
-                ;;
-        esac
-        ;;
-    cleanup)
-        case $1 in
-            images)
-                echo "cleanup"
-                ;;
-            help | -h | --help)
-                exit 0
-                ;;
-            *)
-                printr "Missing argument. \n"
                 exit 1
                 ;;
         esac

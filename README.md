@@ -1,11 +1,19 @@
-# nms-automatic-deployment
+# NMS-Automatic-Deployment
 
 This is an NGINX Management Suite offline installation and deployment tool that gets applications up and running quickly, efficiently, and reliably, solving 
 problems such as the difficulty of installing and deploying our services.
 
 ## Requirements
 
-The script is only running CentOS 7.4+ System
+The NMS-Automatic-Deployment supports the following Linux distributions:
+
+| Distribution | Version | Architecture |
+|--------------|---------|--------------|
+| CentOS     | 7.4 and later in the 7.x family    | x86_64       |
+| Ubuntu      | 22.04   | x86_64     |
+
+if you are have other question, you can click on the link[Technical Specifications](https://docs.nginx.com/nginx-management-suite/tech-specs/) to find out more about the features.
+
 
 ## Utilities required:
 > expect  
@@ -24,50 +32,115 @@ First, you need to download the installation package to the specified directory,
 ```shell
 # This is the entire file directory hierarchy, if you want to use this script, you need to download the installation package to the corresponding directory 
 # in advance, you can run the script to perform installation and deployment operations
-[root@localhost nms-automatic-deployment]# tree 
+root@ubuntu:~/nms-automatic-deployment# tree .
+.
+├── case
+│   └── ClickHouse v23 can't start by systemctl on CentOS 7.9.md
 ├── LICENSE
 ├── nms-automatic-deployment.sh
 ├── pkgs
-│      ├── acm
-│      │        ├── nginx-devportal-1.4.1.762997390.el7.ngx.x86_64.rpm
-│      │        ├── nginx-devportal-ui-1.4.1.762997429.el7.ngx.x86_64.rpm
-│      │        ├── nms-api-connectivity-manager-1.4.1.762997411.el7.ngx.x86_64.rpm
-│      │        └── nms-instance-manager-2.7.0-727255265.el7.ngx.x86_64.rpm
-│      ├── cert
-│      │        ├── nginx-repo.crt
-│      │        └── nginx-repo.key
-│      ├── clickhouse-server
-│      │        ├── clickhouse-client-22.2.2.1-2.noarch.rpm
-│      │        ├── clickhouse-common-static-22.2.2.1-2.x86_64.rpm
-│      │        └── clickhouse-server-22.2.2.1-2.noarch.rpm
-│      ├── nginx
-│      │        └── nginx-1.21.4-1.el7.ngx.x86_64.rpm
-│      ├── nginxplus
-│      │        ├── nginx-ha-keepalived-2.2.7-4.el7.ngx.x86_64.rpm
-│      │        ├── nginx-ha-keepalived-selinux-2.2.7-4.el7.ngx.x86_64.rpm
-│      │        ├── nginx-plus-28-1.el7.ngx.x86_64.rpm
-│      │        ├── nginx-plus-module-auth-spnego-28-1.1.0-2.el7.ngx.x86_64.rpm
-│      │        ├── nginx-plus-module-brotli-28-1.0.0-1.el7.ngx.x86_64.rpm
-│      │        ├── nginx-plus-module-encrypted-session-28-0.09-1.el7.ngx.x86_64.rpm
-│      │        ├── nginx-plus-module-fips-check-28-0.1-2.el7.ngx.x86_64.rpm
-│      │        ├── nginx-plus-module-geoip2-28-3.4-1.el7.ngx.x86_64.rpm
-│      │        ├── nginx-plus-module-geoip-28-1.el7.ngx.x86_64.rpm
-│      │        ├── nginx-plus-module-headers-more-28-0.34-2.el7.ngx.x86_64.rpm
-│      │        ├── nginx-plus-module-image-filter-28-1.el7.ngx.x86_64.rpm
-│      │        ├── nginx-plus-module-lua-28-0.10.22-2.el7.ngx.x86_64.rpm
-│      │        ├── nginx-plus-module-ndk-28-0.3.2-1.el7.ngx.x86_64.rpm
-│      │        ├── nginx-plus-module-njs-28-0.7.9-1.el7.ngx.x86_64.rpm
-│      │        ├── nginx-plus-module-opentracing-28-0.27.0-1.el7.ngx.x86_64.rpm
-│      │        ├── nginx-plus-module-passenger-28-6.0.15-1.el7.ngx.x86_64.rpm
-│      │        ├── nginx-plus-module-perl-28-1.el7.ngx.x86_64.rpm
-│      │        ├── nginx-plus-module-prometheus-28-1.3.4-1.el7.ngx.noarch.rpm
-│      │        ├── nginx-plus-module-rtmp-28-1.2.2-1.el7.ngx.x86_64.rpm
-│      │        ├── nginx-plus-module-set-misc-28-0.33-1.el7.ngx.x86_64.rpm
-│      │        ├── nginx-plus-module-subs-filter-28-0.6.4-1.el7.ngx.x86_64.rpm
-│      │        ├── nginx-plus-module-xslt-28-1.el7.ngx.x86_64.rpm
-│      │		└── nginx-sync-1.1-1.el7.ngx.noarch.rpm
-│      └── nim
-│           └── nms-instance-manager-2.7.0-727255265.el7.ngx.x86_64.rpm
+│   ├── deb
+│   │   ├── ubuntu20
+│   │   └── ubuntu22
+│   │       ├── acm
+│   │       │   ├── nginx-devportal_1.5.0.819933308~jammy_amd64.deb
+│   │       │   ├── nginx-devportal-ui_1.5.0.819932824~jammy_amd64.deb
+│   │       │   └── nms-api-connectivity-manager_1.5.0.819933313~jammy_amd64.deb
+│   │       ├── cert
+│   │       │   ├── nginx-repo.crt
+│   │       │   └── nginx-repo.key
+│   │       ├── clickhouse-server
+│   │       │   ├── clickhouse-client_23.5.3.24_amd64.deb
+│   │       │   ├── clickhouse-common-static_23.5.3.24_amd64.deb
+│   │       │   └── clickhouse-server_23.5.3.24_amd64.deb
+│   │       ├── nginx
+│   │       ├── nginxplus
+│   │       │   ├── nginx-ha-keepalived_2.2.7-3-jammy_amd64.deb
+│   │       │   ├── nginx-plus_28-1-jammy_amd64.deb
+│   │       │   ├── nginx-plus-module-brotli_28-1.0.0-1-jammy_amd64.deb
+│   │       │   ├── nginx-plus-module-encrypted-session_28-0.09-1-jammy_amd64.deb
+│   │       │   ├── nginx-plus-module-fips-check_28-0.1-2-jammy_amd64.deb
+│   │       │   ├── nginx-plus-module-geoip2_28-3.4-1-jammy_amd64.deb
+│   │       │   ├── nginx-plus-module-geoip_28-1-jammy_amd64.deb
+│   │       │   ├── nginx-plus-module-headers-more_28-0.34-2-jammy_amd64.deb
+│   │       │   ├── nginx-plus-module-image-filter_28-1-jammy_amd64.deb
+│   │       │   ├── nginx-plus-module-ndk_28-0.3.2-1-jammy_amd64.deb
+│   │       │   ├── nginx-plus-module-njs_28-0.7.9-1-jammy_amd64.deb
+│   │       │   ├── nginx-plus-module-opentracing_28-0.27.0-1-jammy_amd64.deb
+│   │       │   ├── nginx-plus-module-passenger_28-6.0.15-1-jammy_amd64.deb
+│   │       │   ├── nginx-plus-module-prometheus_28-1.3.4-1-jammy_amd64.deb
+│   │       │   ├── nginx-plus-module-rtmp_28-1.2.2-1-jammy_amd64.deb
+│   │       │   ├── nginx-plus-module-set-misc_28-0.33-1-jammy_amd64.deb
+│   │       │   ├── nginx-plus-module-subs-filter_28-0.6.4-1-jammy_amd64.deb
+│   │       │   ├── nginx-plus-module-xslt_28-1-jammy_amd64.deb
+│   │       │   └── nginx-sync_1.1_all.deb
+│   │       └── nim
+│   │           └── nms-instance-manager_2.9.1-829147369~jammy_amd64.deb
+│   └── rpm
+│       ├── centos7
+│       │   ├── acm
+│       │   │   ├── nginx-devportal-1.5.0.819933308.el7.ngx.x86_64.rpm
+│       │   │   ├── nginx-devportal-ui-1.5.0.819932824.el7.ngx.x86_64.rpm
+│       │   │   ├── nms-api-connectivity-manager-1.5.0.819933313.el7.ngx.x86_64.rpm
+│       │   │   └── nms-instance-manager-2.9.0-812521740.el7.ngx.x86_64.rpm
+│       │   ├── cert
+│       │   │   ├── nginx-repo.crt
+│       │   │   └── nginx-repo.key
+│       │   ├── clickhouse-server
+│       │   │   ├── clickhouse-client-23.2.4.12.x86_64.rpm
+│       │   │   ├── clickhouse-common-static-23.2.4.12.x86_64.rpm
+│       │   │   └── clickhouse-server-23.2.4.12.x86_64.rpm
+│       │   ├── nginx
+│       │   │   └── nginx-1.23.3-1.el7.ngx.x86_64.rpm
+│       │   ├── nginxplus
+│       │   │   ├── nginx-ha-keepalived-2.2.7-4.el7.ngx.x86_64.rpm
+│       │   │   ├── nginx-ha-keepalived-selinux-2.2.7-4.el7.ngx.x86_64.rpm
+│       │   │   ├── nginx-plus-28-1.el7.ngx.x86_64.rpm
+│       │   │   ├── nginx-plus-module-auth-spnego-28-1.1.0-2.el7.ngx.x86_64.rpm
+│       │   │   ├── nginx-plus-module-encrypted-session-28-0.09-1.el7.ngx.x86_64.rpm
+│       │   │   ├── nginx-plus-module-fips-check-28-0.1-2.el7.ngx.x86_64.rpm
+│       │   │   ├── nginx-plus-module-geoip2-28-3.4-1.el7.ngx.x86_64.rpm
+│       │   │   ├── nginx-plus-module-geoip-28-1.el7.ngx.x86_64.rpm
+│       │   │   ├── nginx-plus-module-headers-more-28-0.34-2.el7.ngx.x86_64.rpm
+│       │   │   ├── nginx-plus-module-image-filter-28-1.el7.ngx.x86_64.rpm
+│       │   │   ├── nginx-plus-module-lua-28-0.10.22-2.el7.ngx.x86_64.rpm
+│       │   │   ├── nginx-plus-module-ndk-28-0.3.2-1.el7.ngx.x86_64.rpm
+│       │   │   ├── nginx-plus-module-njs-28-0.7.9-1.el7.ngx.x86_64.rpm
+│       │   │   ├── nginx-plus-module-opentracing-28-0.27.0-1.el7.ngx.x86_64.rpm
+│       │   │   ├── nginx-plus-module-passenger-28-6.0.15-1.el7.ngx.x86_64.rpm
+│       │   │   ├── nginx-plus-module-perl-28-1.el7.ngx.x86_64.rpm
+│       │   │   ├── nginx-plus-module-prometheus-28-1.3.4-1.el7.ngx.noarch.rpm
+│       │   │   ├── nginx-plus-module-rtmp-28-1.2.2-1.el7.ngx.x86_64.rpm
+│       │   │   ├── nginx-plus-module-set-misc-28-0.33-1.el7.ngx.x86_64.rpm
+│       │   │   ├── nginx-plus-module-subs-filter-28-0.6.4-1.el7.ngx.x86_64.rpm
+│       │   │   ├── nginx-plus-module-xslt-28-1.el7.ngx.x86_64.rpm
+│       │   │   └── nginx-sync-1.1-1.el7.ngx.noarch.rpm
+│       │   └── nim
+│       │       └── nms-instance-manager-2.9.0-812521740.el7.ngx.x86_64.rpm
+│       └── centos8
+│           ├── acm
+│           │   ├── nginx-devportal-1.5.0.819933308.el7.ngx.x86_64.rpm
+│           │   ├── nginx-devportal-ui-1.5.0.819932824.el7.ngx.x86_64.rpm
+│           │   ├── nms-api-connectivity-manager-1.5.0.819933313.el7.ngx.x86_64.rpm
+│           │   └── nms-instance-manager-2.9.0-812521740.el7.ngx.x86_64.rpm
+│           ├── cert
+│           │   ├── nginx-repo.crt
+│           │   └── nginx-repo.key
+│           ├── clickhouse-server
+│           │   ├── clickhouse-client-23.2.4.12.x86_64.rpm
+│           │   ├── clickhouse-common-static-23.2.4.12.x86_64.rpm
+│           │   └── clickhouse-server-23.2.4.12.x86_64.rpm
+│           ├── nginx
+│           │   └── nginx-1.23.3-1.el7.ngx.x86_64.rpm
+│           ├── nginxplus
+│           │   ├── nginx-ha-keepalived-2.2.7-4.el8.ngx.x86_64.rpm
+│           │   ├── nginx-ha-keepalived-selinux-2.2.7-4.el8.ngx.x86_64.rpm
+│           │   ├── nginx-plus-29-1.el8.ngx.x86_64.rpm
+│           │   ├── nginx-plus-module-njs-29-0.7.12-1.el8.ngx.x86_64.rpm
+│           │   ├── nginx-plus-module-prometheus-29-1.3.5-1.el8.ngx.noarch.rpm
+│           │   └── nginx-sync-1.1-1.el8.ngx.noarch.rpm
+│           └── nim
+│               └── nms-instance-manager-2.9.0-812521740.el7.ngx.x86_64.rpm
 └── README.md
 [root@localhost nms-automatic-deployment]# ./nms-automatic-deployment.sh -h
 Usage:
