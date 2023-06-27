@@ -7,12 +7,13 @@ problems such as the difficulty of installing and deploying our services.
 
 The NMS-Automatic-Deployment supports the following Linux distributions:
 
-| Distribution | Version | Architecture |
-|--------------|---------|--------------|
-| CentOS     | 7.4 and later in the 7.x family    | x86_64       |
-| Ubuntu      | 22.04   | x86_64     |
+| Distribution | Version                         | Architecture |
+|--------------|---------------------------------|--------------|
+| CentOS     | 7.4 and later in the 7.x family | x86_64       |
+| Ubuntu      | 22.04                           | x86_64     |
+| Ubuntu      | 20.04                           | x86_64     |
 
-if you are have other question, you can click on the link[Technical Specifications](https://docs.nginx.com/nginx-management-suite/tech-specs/) to find out more about the features.
+if you have other question, you can click on the link[Technical Specifications](https://docs.nginx.com/nginx-management-suite/tech-specs/) to find out more about the features.
 
 
 ## Utilities required:

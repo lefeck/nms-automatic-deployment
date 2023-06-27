@@ -249,18 +249,15 @@ function os_preconfig() {
 
     fi
 
+   # Resolve apt upgrade or apt install prompting reboot for ubuntu 22.04
     if [ ! -z ${debian_series} ]; then
-        apt-get -y purge needrestart
+       grep "kernelhints" || echo "\$nrconf{kernelhints} = 0;" >> /etc/needrestart/conf.d/silence_kernel.conf
+       grep "restart" || echo "\$nrconf{restart} = 'l';" >> /etc/needrestart/conf.d/silence_kernel.conf
     fi
-
-#    [[ ! -x "$(command -v expect)" ]] && log_error " expect is not installed. On Centos/Redhat 7, install the 'expect' package."
-#    [[ ! -x "$(command -v htpasswd)" ]] && log_error " httpd-tools is not installed. On Centos/Redhat 7, install the 'httpd-tools' package."
+    # second method: apt autoremove -y --purge needrestart
 }
 
 os_preconfig
-
-# testing usage
-clickhouse_dir="${script_dir}"/pkgs/${pkg_path}/clickhouse-server
 
 # clickhouse server parameters
 clickhouse_server="clickhouse-server"
