@@ -13,7 +13,7 @@ The NMS-Automatic-Deployment supports the following Linux distributions:
 | Ubuntu      | 22.04                           | x86_64     |
 | Ubuntu      | 20.04                           | x86_64     |
 
-if you have other question, you can click on the link[Technical Specifications](https://docs.nginx.com/nginx-management-suite/tech-specs/) to find out more about the features.
+if you have other question, you can click on the link [Technical Specifications](https://docs.nginx.com/nginx-management-suite/tech-specs/) to find out more about the features.
 
 
 ## Utilities required:
@@ -42,6 +42,39 @@ root@ubuntu:~/nms-automatic-deployment# tree .
 ├── pkgs
 │   ├── deb
 │   │   ├── ubuntu20
+│   │   │   ├── acm
+│   │   │   │   ├── nginx-devportal_1.5.0.819933308~jammy_amd64.deb
+│   │   │   │   ├── nginx-devportal-ui_1.5.0.819932824~jammy_amd64.deb
+│   │   │   │   └── nms-api-connectivity-manager_1.5.0.819933313~jammy_amd64.deb
+│   │   │   ├── cert
+│   │   │   │   ├── nginx-repo.crt
+│   │   │   │   └── nginx-repo.key
+│   │   │   ├── clickhouse-server
+│   │   │   │   ├── clickhouse-client_23.5.3.24_amd64.deb
+│   │   │   │   ├── clickhouse-common-static_23.5.3.24_amd64.deb
+│   │   │   │   └── clickhouse-server_23.5.3.24_amd64.deb
+│   │   │   ├── nginx
+│   │   │   ├── nginxplus
+│   │   │   │   ├── nginx-ha-keepalived_2.2.7-3-focal_amd64.deb
+│   │   │   │   ├── nginx-plus_29-1-focal_amd64.deb
+│   │   │   │   ├── nginx-plus-module-brotli_29-1.0.0-1-focal_amd64.deb
+│   │   │   │   ├── nginx-plus-module-encrypted-session_29-0.09-1-focal_amd64.deb
+│   │   │   │   ├── nginx-plus-module-fips-check_29-0.1-1-focal_amd64.deb
+│   │   │   │   ├── nginx-plus-module-geoip2_29-3.4-1-focal_amd64.deb
+│   │   │   │   ├── nginx-plus-module-geoip_29-1-focal_amd64.deb
+│   │   │   │   ├── nginx-plus-module-headers-more_29-0.34-1-focal_amd64.deb
+│   │   │   │   ├── nginx-plus-module-lua_29-0.10.24-1-focal_amd64.deb
+│   │   │   │   ├── nginx-plus-module-ndk_29-0.3.2-1-focal_amd64.deb
+│   │   │   │   ├── nginx-plus-module-njs_29-0.7.12-1-focal_amd64.deb
+│   │   │   │   ├── nginx-plus-module-opentracing_29-0.29.0-1-focal_amd64.deb
+│   │   │   │   ├── nginx-plus-module-otel_29-0.1-1-focal_amd64.deb
+│   │   │   │   ├── nginx-plus-module-passenger_29-6.0.17-1-focal_amd64.deb
+│   │   │   │   ├── nginx-plus-module-perl_29-1-focal_amd64.deb
+│   │   │   │   ├── nginx-plus-module-prometheus_29-1.3.5-1-focal_amd64.deb
+│   │   │   │   ├── nginx-plus-module-rtmp_29-1.2.2-1-focal_amd64.deb
+│   │   │   │   └── nginx-sync_1.1_all.deb
+│   │   │   └── nim
+│   │   │       └── nms-instance-manager_2.9.1-829147369~jammy_amd64.deb
 │   │   └── ubuntu22
 │   │       ├── acm
 │   │       │   ├── nginx-devportal_1.5.0.819933308~jammy_amd64.deb
@@ -143,6 +176,7 @@ root@ubuntu:~/nms-automatic-deployment# tree .
 │           └── nim
 │               └── nms-instance-manager-2.9.0-812521740.el7.ngx.x86_64.rpm
 └── README.md
+
 [root@localhost nms-automatic-deployment]# ./nms-automatic-deployment.sh -h
 Usage:
   nms-automatic-deployment.sh help | -h | --help
